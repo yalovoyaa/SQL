@@ -8,13 +8,12 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 
-
-/*	Хранимая процедура, отправляющая
- *	уведомление ответственным сотрудникам 
- *	об отсутствующих в Тетре кодах ВЭД до начала 
- *	процесса импорта ежедневных отгрузок ИМ 
- *	автор Yalovoy Alexandr
- */
+/ * A stored procedure that sends
+  * notification to responsible employees
+  * about missing in ERP foreign trade codes before the beginning
+  * the process of importing daily shipments of IM
+  * by Yalovoy Alexandr
+*/
 
 CREATE procedure [dbo].[sp_im_import_ved]
 as
@@ -39,7 +38,7 @@ declare
 --notify
 	@errorText		as nvarchar(max),
 	@profileName	as varchar(100)	= 'MAILER',
-	@tema			as varchar(100)	= 'Импорт отгрузок Интернет-магазина за ',
+	@tema			as varchar(100)	= 'Г€Г¬ГЇГ®Г°ГІ Г®ГІГЈГ°ГіГ§Г®ГЄ Г€Г­ГІГҐГ°Г­ГҐГІ-Г¬Г ГЈГ Г§ГЁГ­Г  Г§Г  ',
 	@tema_Date		as varchar(200),
 	@mailOper		as varchar(100)	= 'mail@ukr.net',
 	@recip			as varchar(500) = 'receiver1@ukr.net;receiver2@ukr.net',
@@ -56,7 +55,7 @@ declare	@isEx as table (
 declare @resXml as table (
 	[result]		xml);
 
---проверка на существование каталога для работы с файлом
+--ГЇГ°Г®ГўГҐГ°ГЄГ  Г­Г  Г±ГіГ№ГҐГ±ГІГўГ®ГўГ Г­ГЁГҐ ГЄГ ГІГ Г«Г®ГЈГ  Г¤Г«Гї Г°Г ГЎГ®ГІГ» Г± ГґГ Г©Г«Г®Г¬
 insert into @isEx 
 	exec master.dbo.xp_fileexist @DestPath
 
@@ -69,7 +68,7 @@ end
 select @cmd = 'mkdir ' + @DestPath
 exec master..xp_cmdshell @cmd, no_output
 
---работа с FTP 
+--Г°Г ГЎГ®ГІГ  Г± FTP 
 select @FTPServer = replace(replace(replace(@FTPServer, '|', '^|'),'<','^<'),'>','^>')
 select @FTPUser = replace(replace(replace(@FTPUser, '|', '^|'),'<','^<'),'>','^>')
 select @FTPPWD = replace(replace(replace(@FTPPWD, '|', '^|'),'<','^<'),'>','^>')
@@ -96,7 +95,7 @@ exec master..xp_cmdshell @cmd, no_output
 select @cmd = 'del /q ' + @workfilename
 exec master..xp_cmdshell @cmd, no_output
 
---проверка существования файла импорта
+--ГЇГ°Г®ГўГҐГ°ГЄГ  Г±ГіГ№ГҐГ±ГІГўГ®ГўГ Г­ГЁГї ГґГ Г©Г«Г  ГЁГ¬ГЇГ®Г°ГІГ 
 select @cmd = 'dir ' + @DestPath
 insert into @dirFile([file])
 	exec master..xp_cmdshell @cmd
@@ -117,7 +116,7 @@ begin
 	fetch next from cur into @file
 	while @@fetch_status = 0
 	begin
-		--формируем тему письма
+		--ГґГ®Г°Г¬ГЁГ°ГіГҐГ¬ ГІГҐГ¬Гі ГЇГЁГ±ГјГ¬Г 
 		select @fileDate = cast(convert(varchar, cast(substring(@file, 9, 8) as date), 104) as varchar(20))
 
 		select @tema_Date = @tema + @fileDate
@@ -130,7 +129,7 @@ begin
 
 		if (select top 1 [file] from @isEx) = 1
 		begin
-		--грузим продажи из файла импорта
+		--ГЈГ°ГіГ§ГЁГ¬ ГЇГ°Г®Г¤Г Г¦ГЁ ГЁГ§ ГґГ Г©Г«Г  ГЁГ¬ГЇГ®Г°ГІГ 
 		set @sqlstmt= 'SELECT * FROM OPENROWSET ( BULK ''' + @fullPath + ''', SINGLE_CLOB) AS xmlData'
 	
 		insert into @resXml 
@@ -143,15 +142,15 @@ begin
 		insert into [WEB].dim.sale([GoodID])
 			execute OFFICE.dbo.sp_InternetStoreShipping_Import @StringXML
 
-		--формируем тело уведомления об отсутствующих кодах ВЭД
-		select @errorText = 'Добрый день! Отсутствуют коды УКТВЭД по следующим товарам:' + 
+		--ГґГ®Г°Г¬ГЁГ°ГіГҐГ¬ ГІГҐГ«Г® ГіГўГҐГ¤Г®Г¬Г«ГҐГ­ГЁГї Г®ГЎ Г®ГІГ±ГіГІГ±ГІГўГіГѕГ№ГЁГµ ГЄГ®Г¤Г Гµ Г‚ГќГ„
+		select @errorText = 'Г„Г®ГЎГ°Г»Г© Г¤ГҐГ­Гј! ГЋГІГ±ГіГІГ±ГІГўГіГѕГІ ГЄГ®Г¤Г» Г“ГЉГ’Г‚ГќГ„ ГЇГ® Г±Г«ГҐГ¤ГіГѕГ№ГЁГ¬ ГІГ®ГўГ Г°Г Г¬:' + 
 			N'<br>' + 
 			N'<table border="1">' +  
 			N'<tr>
-				<th>ТоварИД</th>
-				<th>Товар</th>
-				<th>Штрихкод</th>
-				<th>Код УКТВЭД</th>
+				<th>Г’Г®ГўГ Г°Г€Г„</th>
+				<th>Г’Г®ГўГ Г°</th>
+				<th>ГГІГ°ГЁГµГЄГ®Г¤</th>
+				<th>ГЉГ®Г¤ Г“ГЉГ’Г‚ГќГ„</th>
 			</tr>' + 
 			cast((
 			select 
@@ -163,7 +162,7 @@ begin
 				left join NodeBU.dbo.mn_object_property op203 with(nolock) on op203.ObjectID=m.GoodID and op203.PropertyID=203 
 				left join NodeBU.dbo.mn_object_property op336 with(nolock) on op336.ObjectID=m.GoodID and op336.PropertyID=336 
 				left join NodeBU.dbo.mn_directory opv336 with(nolock) on opv336.DirectoryID = cast(op336.[Value] as int) 
-			where m.GoodID in (	--проверка отсутствующих в Тетре кодов ВЭД
+			where m.GoodID in (	--ГЇГ°Г®ГўГҐГ°ГЄГ  Г®ГІГ±ГіГІГ±ГІГўГіГѕГ№ГЁГµ Гў Г’ГҐГІГ°ГҐ ГЄГ®Г¤Г®Гў Г‚ГќГ„
 								select
 								s.GoodID
 								--,t.VED
@@ -181,7 +180,7 @@ begin
 			) as nvarchar(max) ) +  
 			N'</table>'; 
 
-		--отправка письма
+		--Г®ГІГЇГ°Г ГўГЄГ  ГЇГЁГ±ГјГ¬Г 
 		if @errorText is not null
 			exec msdb.dbo.sp_send_dbmail 
 			@profile_name = @profileName,
@@ -191,7 +190,7 @@ begin
 			@body_format = 'HTML';
 		end
 
-		--удаляем файл импорта из врменной папки
+		--ГіГ¤Г Г«ГїГҐГ¬ ГґГ Г©Г« ГЁГ¬ГЇГ®Г°ГІГ  ГЁГ§ ГўГ°Г¬ГҐГ­Г­Г®Г© ГЇГ ГЇГЄГЁ
 		select @cmd = 'del /q' + @fullPath
 		exec master..xp_cmdshell @cmd, no_output
 
@@ -202,7 +201,7 @@ begin
 	deallocate cur
 end
 
---удаляем временный каталог
+--ГіГ¤Г Г«ГїГҐГ¬ ГўГ°ГҐГ¬ГҐГ­Г­Г»Г© ГЄГ ГІГ Г«Г®ГЈ
 select @cmd = 'rmdir /s/q ' + @DestPath
 exec master..xp_cmdshell @cmd, no_output
 go
